@@ -10,6 +10,15 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+func createDirs(filePath string) {
+	//Creating directories
+	directorystring := filepath.Dir(filePath)
+	err := os.MkdirAll(directorystring, os.ModePerm)
+	if err != nil {
+		log.Fatal().Err(err).Msg("Cannot create directories")
+	}
+}
+
 func getLevel(l string) zerolog.Level {
 	switch l {
 	case "info":
@@ -27,7 +36,7 @@ func getLevel(l string) zerolog.Level {
 func setupLogging(l string) {
 	zerolog.TimeFieldFormat = "2006-01-02 15:04:05.999"
 	consoleWriter := zerolog.ConsoleWriter{Out: os.Stdout}
-	logpath := filepath.Join("logs", fmt.Sprintf("%s.log", time.Now().Format("2006-01-02-15:04:05")))
+	logpath := filepath.Join("logs", fmt.Sprintf("%s.log", time.Now().Format("2006-01-02")))
 	createDirs(logpath)
 	file, err := os.Create(logpath)
 	if err != nil {

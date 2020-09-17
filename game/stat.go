@@ -37,12 +37,14 @@ func (p PacketLatencyStat) GetHeader() []string {
 }
 
 func (p PacketLatencyStat) GetRow() []string {
+	rttus := (p.ClientRcv - p.ClientSend) / 1000
+	fmt.Printf("%d us\r", rttus)
 	return []string{
 		p.Timestamp.Format("2006-01-02 15:04:05.999999999"),
 		fmt.Sprint(p.Seq),
 		fmt.Sprint(p.ClientSend),
 		fmt.Sprint(p.ServerRcv),
 		fmt.Sprint(p.ClientRcv),
-		fmt.Sprint((p.ClientRcv - p.ClientSend) / 1000),
+		fmt.Sprint(rttus),
 	}
 }
