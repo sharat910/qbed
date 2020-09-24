@@ -75,19 +75,20 @@ func (c *Client) HandleReplies(wg *sync.WaitGroup) {
 				if numpackets == 0 {
 					log.Warn().Msg("Did not receive replies from server")
 				}
+				close(packetstats)
 				return
 			}
 			log.Fatal().Err(err).Msg("unable to receive")
 		}
 		now := time.Now()
 		rData := buffer[:n]
-		var pls PacketLatencyStat
+		var pls PacketStat
 		pls.Timestamp = now
 		pls.ClientRcv = now.UnixNano()
 		pls.Seq = binary.BigEndian.Uint32(rData[:4])
 		pls.ClientSend = int64(binary.BigEndian.Uint64(rData[4:12]))
 		pls.ServerRcv = int64(binary.BigEndian.Uint64(rData[12:]))
-		stats <- pls
+		packetstats <- pls
 		numpackets++
 	}
 }
