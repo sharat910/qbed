@@ -51,7 +51,15 @@ windows:
       # 'before' represents legacy functionality and will be deprecated in a future release, in favour of 'after'
       # synchronize: after
       panes:
-        - docker exec -it game_server ash
-        - docker exec -it game_client ash
-        - docker exec -it download_server ash
-        - docker exec -it download_client ash
+        - gameserver:
+          - docker exec -it game_server ash
+          - ./game -server -addr 0.0.0.0:8888
+        - gameclient:
+          - docker exec -it game_client ash
+          - ./game -client -addr 10.0.0.1:8888 -t 10
+        - downloadserver:
+          - docker exec -it download_server ash
+          - ./download -server -addr 0.0.0.0:9999
+        - downloadclient:
+          - docker exec -it download_client ash
+          - ./download -client -addr 10.0.1.1:9999

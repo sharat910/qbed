@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"strconv"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/dustin/go-humanize"
@@ -16,40 +15,20 @@ import (
 type Client struct {
 }
 
-type Counter struct {
-	bytesDownloaded int64
-	lastLog         time.Time
-	lastDownloaded  int64
-	lock            sync.Mutex
-}
-
-func (c *Counter) Write(p []byte) (n int, err error) {
-	atomic.AddInt64(&c.bytesDownloaded, int64(len(p)))
-	now := time.Now()
-	c.lock.Lock()
-	if now.Sub(c.lastLog) > time.Second {
-		rate := 8 * (c.bytesDownloaded - c.lastDownloaded) / now.Sub(c.lastLog).Milliseconds()
-		log.Info().
-			Int64("rate_kbps", rate).
-			Str("bytes_downloaded", humanize.Bytes(uint64(c.bytesDownloaded))).
-			Msg("progress")
-		c.lastDownloaded = c.bytesDownloaded
-		c.lastLog = now
-	}
-	c.lock.Unlock()
-	return len(p), nil
-}
-
 func (c *Client) Download(addr string, filesize, parallel int) {
 	log.Info().Time("start_time", time.Now()).Str("filesize", humanize.Bytes(uint64(filesize))).
 		Int("num_goroutines", parallel).Msg("Starting download")
 	start := time.Now()
+
+	counter := &Counter{stopChan: make(chan struct{})}
+	go counter.ComputeRate()
+
 	var wg sync.WaitGroup
 	url := fmt.Sprintf("http://%s/download?size=%d", addr, filesize)
 	length := c.GetBodyLength(url)
 	lenEach := length / parallel
 	diff := length % parallel // Get the remaining for the last request
-	counter := &Counter{}
+
 	for i := 0; i < parallel; i++ {
 		wg.Add(1)
 
@@ -81,6 +60,7 @@ func (c *Client) Download(addr string, filesize, parallel int) {
 		}(min, max, i)
 	}
 	wg.Wait()
+	counter.Stop()
 	log.Info().Int("parallel", parallel).
 		Str("filesize", humanize.Bytes(uint64(filesize))).
 		Dur("durMS", time.Since(start)).

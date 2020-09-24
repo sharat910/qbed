@@ -1,8 +1,8 @@
 package main
 
 import (
-	"bytes"
 	"fmt"
+	"io"
 	"net/http"
 	"strconv"
 	"time"
@@ -20,6 +20,21 @@ func Server(addr string) {
 	}
 }
 
+type ByteGen struct {
+	TotalBytes int64
+}
+
+func (b ByteGen) Read(p []byte) (n int, err error) {
+	return len(p), nil
+}
+
+func (b ByteGen) Seek(offset int64, whence int) (int64, error) {
+	if whence == io.SeekEnd {
+		return b.TotalBytes, nil
+	}
+	return 0, nil
+}
+
 func Handle(writer http.ResponseWriter, request *http.Request) {
 	fileSize, err := strconv.Atoi(request.URL.Query().Get("size"))
 	if err != nil {
@@ -29,9 +44,11 @@ func Handle(writer http.ResponseWriter, request *http.Request) {
 	}
 
 	log.Info().Int("size", fileSize).Str("range", request.Header.Get("Range")).Msg("serving download")
-	// Create the file content
-	file := make([]byte, fileSize)
-	http.ServeContent(writer, request, "d.bin", time.Now(), bytes.NewReader(file))
+	//// Create the file content
+	//file := make([]byte, fileSize)
+	//readSeeker := bytes.NewReader(file)
+	readSeeker := ByteGen{TotalBytes: int64(fileSize)}
+	http.ServeContent(writer, request, "d.bin", time.Now(), readSeeker)
 }
 
 func HandleLayman(writer http.ResponseWriter, request *http.Request) {
