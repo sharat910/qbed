@@ -3,10 +3,10 @@ package main
 import (
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"strconv"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/dustin/go-humanize"
@@ -16,14 +16,40 @@ import (
 type Client struct {
 }
 
+type Counter struct {
+	bytesDownloaded int64
+	lastLog         time.Time
+	lastDownloaded  int64
+	lock            sync.Mutex
+}
+
+func (c *Counter) Write(p []byte) (n int, err error) {
+	atomic.AddInt64(&c.bytesDownloaded, int64(len(p)))
+	now := time.Now()
+	c.lock.Lock()
+	if now.Sub(c.lastLog) > time.Second {
+		rate := 8 * (c.bytesDownloaded - c.lastDownloaded) / now.Sub(c.lastLog).Milliseconds()
+		log.Info().
+			Int64("rate_kbps", rate).
+			Str("bytes_downloaded", humanize.Bytes(uint64(c.bytesDownloaded))).
+			Msg("progress")
+		c.lastDownloaded = c.bytesDownloaded
+		c.lastLog = now
+	}
+	c.lock.Unlock()
+	return len(p), nil
+}
+
 func (c *Client) Download(addr string, filesize, parallel int) {
+	log.Info().Time("start_time", time.Now()).Str("filesize", humanize.Bytes(uint64(filesize))).
+		Int("num_goroutines", parallel).Msg("Starting download")
 	start := time.Now()
 	var wg sync.WaitGroup
 	url := fmt.Sprintf("http://%s/download?size=%d", addr, filesize)
 	length := c.GetBodyLength(url)
 	lenEach := length / parallel
 	diff := length % parallel // Get the remaining for the last request
-
+	counter := &Counter{}
 	for i := 0; i < parallel; i++ {
 		wg.Add(1)
 
@@ -41,7 +67,7 @@ func (c *Client) Download(addr string, filesize, parallel int) {
 			rangeHeader := "bytes=" + strconv.Itoa(min) + "-" + strconv.Itoa(max-1) // Add the data for the Range header of the form "bytes=0-100"
 			req.Header.Add("Range", rangeHeader)
 			resp, _ := client.Do(req)
-			n, err := io.Copy(ioutil.Discard, resp.Body)
+			n, err := io.Copy(counter, resp.Body)
 			if err != nil {
 				log.Fatal().Err(err).Msg("unable to read body")
 			}
@@ -55,8 +81,11 @@ func (c *Client) Download(addr string, filesize, parallel int) {
 		}(min, max, i)
 	}
 	wg.Wait()
-	log.Info().Int("parallel", parallel).Str("filesize", humanize.Bytes(uint64(filesize))).
-		Dur("durMS", time.Since(start)).Msg("download finished")
+	log.Info().Int("parallel", parallel).
+		Str("filesize", humanize.Bytes(uint64(filesize))).
+		Dur("durMS", time.Since(start)).
+		Int64("avg_speed", 8*int64(filesize)/time.Since(start).Milliseconds()).
+		Msg("download finished")
 }
 
 func (c *Client) GetBodyLength(url string) int {
