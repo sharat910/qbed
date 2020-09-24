@@ -59,7 +59,7 @@ func (mg *MetricGenerator) Generate() {
 	var downstreamLatencies []float64
 	for _, p := range mg.packets {
 		upstreamLatencies = append(upstreamLatencies, p.GetUpstreamLatencyMS())
-		downstreamLatencies = append(upstreamLatencies, p.GetUpstreamLatencyMS())
+		downstreamLatencies = append(downstreamLatencies, p.GetDownstreamLatencyMS())
 	}
 	var m Metric
 	m.NPackets = len(mg.packets)
