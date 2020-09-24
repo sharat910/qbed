@@ -67,10 +67,14 @@ func (c *Client) HandleReplies(wg *sync.WaitGroup) {
 	defer wg.Done()
 
 	buffer := make([]byte, 1024)
+	numpackets := 0
 	for {
 		n, _, err := c.conn.ReadFromUDP(buffer)
 		if err != nil {
 			if strings.Contains(err.Error(), "use of closed network connection") {
+				if numpackets == 0 {
+					log.Warn().Msg("Did not receive replies from server")
+				}
 				return
 			}
 			log.Fatal().Err(err).Msg("unable to receive")
@@ -84,5 +88,6 @@ func (c *Client) HandleReplies(wg *sync.WaitGroup) {
 		pls.ClientSend = int64(binary.BigEndian.Uint64(rData[4:12]))
 		pls.ServerRcv = int64(binary.BigEndian.Uint64(rData[12:]))
 		stats <- pls
+		numpackets++
 	}
 }
