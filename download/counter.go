@@ -8,7 +8,7 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-type Counter struct {
+type ByteCounter struct {
 	bytesDownloaded int64
 	lastLog         time.Time
 	lastDownloaded  int64
@@ -17,14 +17,14 @@ type Counter struct {
 	stopChan        chan struct{}
 }
 
-func (c *Counter) Write(p []byte) (n int, err error) {
+func (c *ByteCounter) Write(p []byte) (n int, err error) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 	c.bytesDownloaded += int64(len(p))
 	return len(p), nil
 }
 
-func (c *Counter) ComputeRate() {
+func (c *ByteCounter) ComputeRate() {
 	c.wg.Add(1)
 	defer c.wg.Done()
 
@@ -39,12 +39,12 @@ func (c *Counter) ComputeRate() {
 	}
 }
 
-func (c *Counter) Stop() {
+func (c *ByteCounter) Stop() {
 	c.stopChan <- struct{}{}
 	c.wg.Wait()
 }
 
-func (c *Counter) GetRate() {
+func (c *ByteCounter) GetRate() {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 	now := time.Now()

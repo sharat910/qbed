@@ -53,13 +53,19 @@ windows:
       panes:
         - gameserver:
           - docker exec -it game_server ash
+          - ethtool -K eth1 tx off
           - ./game -server -addr 0.0.0.0:8888
         - gameclient:
           - docker exec -it game_client ash
+          - ethtool -K eth1 tx off
           - ./game -client -addr 10.0.0.1:8888 -t 10
         - downloadserver:
           - docker exec -it download_server ash
+          - ethtool -K eth1 tx off
           - ./download -server -addr 0.0.0.0:9999
         - downloadclient:
           - docker exec -it download_client ash
+          - ethtool -K eth1 tx off
           - ./download -client -addr 10.0.1.1:9999
+        - dump:
+          - cd qbed/expts/pcaps/

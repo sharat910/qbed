@@ -17,10 +17,14 @@ ip link set dev swport1 up
 ip link set dev swport2 up
 
 echo "Adding ports to bridges..."
-ovs-vsctl add-port internet port1
-ovs-vsctl add-port nbn port2
+ovs-vsctl add-port nbn port1
+ovs-vsctl add-port internet port2
 ovs-vsctl add-port bng swport1
 ovs-vsctl add-port bng swport2
+
+ echo "Config TC..."
+tc qdisc add dev port2 root netem delay 10ms
+tc qdisc add dev swport1 root netem rate 25mbit limit 250
 
 echo "Done."
 

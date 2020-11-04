@@ -111,7 +111,7 @@ func CSVDumper(rootPath string, wg *sync.WaitGroup) {
 	FWMap := make(map[string]FileAndWriter, 2)
 	var fw FileAndWriter
 	var found bool
-
+	log.Info().Str("path", rootPath).Msg("csv dumper ready")
 	for c := range csvrecords {
 		//fmt.Println(c.GetType(), c.GetRow())
 		fw, found = FWMap[c.GetType()]

@@ -13,19 +13,73 @@ import (
 )
 
 type Client struct {
+	requests chan *http.Request
+	counter  *ByteCounter
+	wg       sync.WaitGroup
 }
 
-func (c *Client) Download(addr string, filesize, parallel int) {
+func NewClient() Client {
+	counter := &ByteCounter{
+		stopChan: make(chan struct{}),
+	}
+	go counter.ComputeRate()
+	return Client{
+		requests: make(chan *http.Request),
+		counter:  counter,
+	}
+}
+
+func (c *Client) AddNewRequest(r *http.Request) {
+	c.requests <- r
+}
+
+func (c *Client) SpawnThreads(n int) {
+	for i := 0; i < n; i++ {
+		c.wg.Add(1)
+		go func(idx int) {
+			defer c.wg.Done()
+			log.Debug().Int("thread_index", idx).Msg("thread started")
+			var httpclient http.Client
+			for req := range c.requests {
+				log.Debug().Int("thread_index", idx).Str("url", req.URL.String()).Msg("got req")
+				resp, err := httpclient.Do(req)
+				if err != nil {
+					log.Fatal().Err(err).Msg("unable to do req")
+				}
+				log.Debug().Msg("req sent")
+				_, err = io.Copy(c.counter, resp.Body)
+				if err != nil {
+					log.Fatal().Err(err).Msg("unable to read body")
+				}
+				log.Debug().Msg("io copy done")
+				err = resp.Body.Close()
+				if err != nil {
+					log.Fatal().Err(err).Msg("unable to close body")
+				}
+				log.Debug().Msg("resp closed")
+			}
+			log.Debug().Int("thread_index", idx).Msg("thread exit")
+		}(i)
+	}
+}
+
+func (c *Client) WaitUntilFinished() {
+	close(c.requests)
+	c.wg.Wait()
+	c.counter.Stop()
+}
+
+func (c *Client) DownloadOneFile(addr string, filesize, parallel int) {
 	log.Info().Time("start_time", time.Now()).Str("filesize", humanize.Bytes(uint64(filesize))).
 		Int("num_goroutines", parallel).Msg("Starting download")
 	start := time.Now()
 
-	counter := &Counter{stopChan: make(chan struct{})}
+	counter := &ByteCounter{stopChan: make(chan struct{})}
 	go counter.ComputeRate()
 
 	var wg sync.WaitGroup
 	url := fmt.Sprintf("http://%s/download?size=%d", addr, filesize)
-	length := c.GetBodyLength(url)
+	length := GetBodyLength(url)
 	lenEach := length / parallel
 	diff := length % parallel // Get the remaining for the last request
 
@@ -66,18 +120,4 @@ func (c *Client) Download(addr string, filesize, parallel int) {
 		Dur("durMS", time.Since(start)).
 		Int64("avg_speed", 8*int64(filesize)/time.Since(start).Milliseconds()).
 		Msg("download finished")
-}
-
-func (c *Client) GetBodyLength(url string) int {
-	start := time.Now()
-	res, err := http.Head(url)
-	if err != nil {
-		log.Fatal().Err(err).Msg("unable to request head")
-	}
-	length, err := strconv.Atoi(res.Header.Get("Content-Length")) // Get the content length from the header request
-	if err != nil {
-		log.Fatal().Err(err).Msg("unable to get content length")
-	}
-	log.Debug().Str("url", url).Dur("durMS", time.Since(start)).Msg("got body length")
-	return length
 }

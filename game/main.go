@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"path/filepath"
 	"sync"
 	"time"
 
@@ -13,6 +14,7 @@ var packetstats chan PacketStat
 
 func main() {
 	addr := flag.String("addr", "localhost:6000", "Addr for server to listen or client to connect")
+	tag := flag.String("tag", "test", "Tag to save data")
 	server := flag.Bool("server", false, "Run in server mode")
 	client := flag.Bool("client", false, "Run in client mode")
 	tick := flag.Int("tick", 64, "tick rate to send packets at")
@@ -31,17 +33,17 @@ func main() {
 		if *t != 0 {
 			*n = *t * *tick
 		}
-		StartClient(*addr, *tick, *n)
+		StartClient(*tag, *addr, *tick, *n)
 	}
 
 }
 
-func StartClient(addr string, tick int, n int) {
+func StartClient(tag, addr string, tick int, n int) {
 	var wg sync.WaitGroup
 	packetstats = make(chan PacketStat, 100)
 	csvrecords = make(chan CSVRecord, 10)
 
-	go CSVDumper("data", &wg)
+	go CSVDumper(filepath.Join("data", tag), &wg)
 
 	var sm StatManager
 	sm.AddHandler(PacketToCSV{})
