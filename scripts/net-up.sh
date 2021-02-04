@@ -23,8 +23,8 @@ ovs-vsctl add-port bng swport1
 ovs-vsctl add-port bng swport2
 
  echo "Config TC..."
-tc qdisc add dev port2 root netem delay 10ms
-tc qdisc add dev swport1 root netem rate 25mbit limit 250
+tc qdisc add dev port2 root netem delay 20ms
+tc qdisc add dev swport1 root netem rate 25mbit limit 200
 
 echo "Done."
 
