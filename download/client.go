@@ -42,12 +42,13 @@ func (c *Client) SpawnThreads(n int) {
 			var httpclient http.Client
 			for req := range c.requests {
 				log.Debug().Int("thread_index", idx).Str("url", req.URL.String()).Msg("got req")
+				start := time.Now()
 				resp, err := httpclient.Do(req)
 				if err != nil {
 					log.Fatal().Err(err).Msg("unable to do req")
 				}
 				log.Debug().Msg("req sent")
-				_, err = io.Copy(c.counter, resp.Body)
+				objsize, err := io.Copy(c.counter, resp.Body)
 				if err != nil {
 					log.Fatal().Err(err).Msg("unable to read body")
 				}
@@ -57,6 +58,10 @@ func (c *Client) SpawnThreads(n int) {
 					log.Fatal().Err(err).Msg("unable to close body")
 				}
 				log.Debug().Msg("resp closed")
+				oct := time.Since(start)
+				log.Info().Int64("size", objsize).Dur("oct", oct).
+					Int64("rate_kbps", (8*objsize)/oct.Milliseconds()).
+					Msg("obj downloaded")
 			}
 			log.Debug().Int("thread_index", idx).Msg("thread exit")
 		}(i)

@@ -1,7 +1,7 @@
 # ./.tmuxinator.yml
 
 name: qbed
-root: ~/qbed
+root: ~/projects/gaming/qbed
 
 # Optional tmux socket
 # socket_name: foo
@@ -51,21 +51,27 @@ windows:
       # 'before' represents legacy functionality and will be deprecated in a future release, in favour of 'after'
       # synchronize: after
       panes:
-        - gameserver:
-          - docker exec -it game_server ash
-          - ethtool -K eth1 tx off
-          - ./game -server -addr 0.0.0.0:8888
         - gameclient:
           - docker exec -it game_client ash
           - ethtool -K eth1 tx off
-          - ./game -client -addr 10.0.0.1:8888 -t 10
-        - downloadserver:
-          - docker exec -it download_server ash
+          - ifconfig eth1
+          - echo "./game -client -addr 10.0.0.2:8888 -t 10"
+        - gameserver:
+          - docker exec -it game_server ash
           - ethtool -K eth1 tx off
-          - ./download -server -addr 0.0.0.0:9999
+          - ifconfig eth1
+          - echo "./game -server -addr 0.0.0.0:8888"
         - downloadclient:
           - docker exec -it download_client ash
           - ethtool -K eth1 tx off
-          - ./download -client -addr 10.0.1.1:9999
-        - dump:
-          - cd qbed/expts/pcaps/
+          - ifconfig eth1
+          - echo "./download -client -addr 10.0.1.2:9999"
+        - downloadserver:
+          - docker exec -it download_server ash
+          - ethtool -K eth1 tx off
+          - ifconfig eth1
+          - echo "./download -server -addr 0.0.0.0:9999"
+        - dump1:
+          - cd qbed/expts/
+        - dump2:
+          - cd qbed/expts/

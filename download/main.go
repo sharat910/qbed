@@ -13,8 +13,9 @@ func main() {
 	l := flag.String("l", "info", "Log Level")
 	client := flag.Bool("client", false, "Run in client mode")
 	p := flag.Int("p", 1, "number of parallel threads")
-	c := flag.Int("c", 1, "number of files to fetch")
-	irt := flag.Int("irt", 0, "inter request time")
+	c := flag.Int("c", 1, "number of objects to fetch")
+	b := flag.Int("b", 1, "number of objects in a burst")
+	ibt := flag.Int("ibt", 0, "inter burst time")
 	size := flag.Int("filesize", 100, "filesize to download in KB")
 	std := flag.Int("std", 0, "std of filesize (use with dist)")
 	dist := flag.Bool("norm", false, "use normal distribution")
@@ -37,13 +38,16 @@ func main() {
 			Std:      *std,
 		})
 		start := time.Now()
-		for _, req := range requests {
-			t := time.Now()
+		burstStart := start
+		for i, req := range requests {
 			client.AddNewRequest(req)
-			elapsed := time.Since(t)
-			interReqDur := time.Duration(*irt) * time.Second
-			if interReqDur > elapsed {
-				time.Sleep(interReqDur - elapsed)
+			if i%*b == 0 {
+				elapsed := time.Since(burstStart)
+				interBurstDur := time.Duration(*ibt) * time.Second
+				if interBurstDur > elapsed {
+					time.Sleep(interBurstDur - elapsed)
+				}
+				burstStart = time.Now()
 			}
 		}
 		client.WaitUntilFinished()

@@ -22,9 +22,32 @@ ovs-vsctl add-port internet port2
 ovs-vsctl add-port bng swport1
 ovs-vsctl add-port bng swport2
 
- echo "Config TC..."
+echo "Config TC..."
+echo "Adding base latency..."
+tc qdisc add dev swport2 root netem delay 20ms
 tc qdisc add dev port2 root netem delay 20ms
-tc qdisc add dev swport1 root netem rate 25mbit limit 200
+
+echo "Adding queues in downstream..."
+# basic config
+# tc qdisc add dev swport1 root netem rate 25mbit limit 200
+
+# two queue min-rate config
+# Root qdisc
+tc qdisc add dev swport1 root handle 1: htb default 12
+
+# Root class
+tc class add dev swport1 parent 1: classid 1:1 htb rate 5mbit
+
+# Child classes
+tc class add dev swport1 parent 1:1 classid 1:11 htb rate 1mbit ceil 5mbit
+tc class add dev swport1 parent 1:1 classid 1:12 htb rate 4mbit ceil 5mbit
+
+# Verify
+tc class show dev swport1
+
+# Filters
+tc filter add dev swport1 protocol ip parent 1:0 prio 1 u32 match ip src 10.0.0.0/24 flowid 1:11
+tc filter add dev swport1 protocol ip parent 1:0 prio 1 u32 match ip src 10.0.1.0/24 flowid 1:12
 
 echo "Done."
 
